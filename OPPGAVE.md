@@ -27,7 +27,8 @@ I et klasserom kan studentene lese beskjeder fra læreren. Hvert klasserom har o
 
 **Oppgave:** Beskriv en konseptuell datamodell (med tekst eller ER-diagram) for systemet. Modellen skal kun inneholde entiteter, som du har valgt, og forholdene mellom dem, med kardinalitet. Du trenger ikke spesifisere attributter i denne delen.
 
-**Ditt svar:***
+**Ditt svar:** Se er_diagram.mmd
+- Entiteter: ACCOUNT, GROUP_MEMBERSHIP, CLASS_GROUP, CLASSROOM_ACCESS, VIRTUAL_CLASSROOM, CLASSROOM_MESSAGE, DISCUSSION_FORUM, FORUM_POST
 
 
 ## Del 2: Logisk Skjema (Tabellstruktur)
@@ -35,7 +36,15 @@ I et klasserom kan studentene lese beskjeder fra læreren. Hvert klasserom har o
 **Oppgave:** Oversett den konseptuelle modellen til en logisk tabellstruktur. Spesifiser tabellnavn, attributter (kolonner), datatyper, primærnøkler (PK) og fremmednøkler (FK). Tegn et utvidet ER-diagram med [mermaid.live](https://mermaid.live/) eller eventuelt på papir.
 
 
-**Ditt svar:***
+**Ditt svar:** Se er_diagram.mmd
+- ACCOUNT: user_id (PK(SERIAL)), username (VARCHAR(50)), password (VARCHAR(128)), role (ENUM)
+- GROUP_MEMBERSHIP: user_id og group_id (sammensatt PK(INT)), user_id (FK(INT)), group_id (FK(INT))
+- CLASS_GROUP: group_id (PK (SERIAL)), group_name (VARCHAR(50))
+- CLASSROOM_ACCESS: group_id og classroom_id (sammensatt PK (INT)), group_id (FK(INT)), classroom_id (FK(INT))
+- VIRTUAL_CLASSROOM: classroom_id (PK (SERIAL)), classroom_code (VARCHAR(50)), classroom_name (VARCHAR(50)), user_id (FK(INT))
+- CLASSROOM_MESSAGE: message_id (PK (SERIAL)), post_date (TIMESTAMP), subject ((VARCHAR(50))), content (TEXT), user_id (FK(INT)), classroom_id (FK(INT))
+- DISCUSSION_FORUM: forum_id (PK (SERIAL)), classroom_id (FK(INT))
+- FORUM_POST: post_id (PK (SERIAL)), post_date (TIMESTAMP), subject ((VARCHAR(50))), content (TEXT), parent_post_id (FK(INT) av post_id), user_id (FK(INT)), forum_id (FK(INT))
 
 
 ## Del 3: Datadefinisjon (DDL) og Mock-Data
@@ -43,7 +52,7 @@ I et klasserom kan studentene lese beskjeder fra læreren. Hvert klasserom har o
 **Oppgave:** Skriv SQL-setninger for å opprette tabellstrukturen (DDL - Data Definition Language) og sett inn realistiske mock-data for å simulere bruk av systemet.
 
 
-**Ditt svar:***
+**Ditt svar:** Se 01-init-database.sql
 
 
 ## Del 4: Spørringer mot Databasen
@@ -53,11 +62,21 @@ I et klasserom kan studentene lese beskjeder fra læreren. Hvert klasserom har o
 ### 1. Finn de 3 nyeste beskjeder fra læreren i et gitt klasserom (f.eks. klasserom_id = 1).
 
 *   **Relasjonsalgebra:**
-    > 
+    > $$\lambda_{3} ( \tau_{post\_date\,DESC} ( \pi_{subject, content, username, post\_date} ( \sigma_{classroom\_id = 1} (CLASSROOM\_MESSAGE \bowtie ACCOUNT) ) ) )$$
+    - $\sigma$ (Sigma): Seleksjon. Operator for WHERE-klausulen. Filtrerer ut radene der classroom_id = 1.
+    - $\pi$ (Pi): Projeksjon. Operator for SELECT-klausulen. Beholder bare de kolonnene vi skriver.
+    - $\tau$ (Tau): Sortering. Operatoren for ORDER BY-klausulen. Sorterer på post_date i synkende rekkefølge.
+    - $\lambda$ (Lambda): Limit. Brukes i utvidet algebra for å begrense antall rader som returneres.
+    
 
 *   **SQL:**
     ```sql
-    
+    SELECT subject, content, username, post_date
+    FROM CLASSROOM_MESSAGE cm
+    JOIN ACCOUNT a ON cm.user_id = a.user_id
+    WHERE classroom_id = 1
+    ORDER BY post_date DESC
+    LIMIT 3;
     ```
 
 ### 2. Vis en hel diskusjonstråd startet av en spesifikk student (f.eks. avsender_id = 2).
@@ -69,27 +88,56 @@ I et klasserom kan studentene lese beskjeder fra læreren. Hvert klasserom har o
 
     Du kan vente med denne oppgaven til vi har gått gjennom avanserte SQL-spørringer (tips: må bruke en rekursiv konstruksjon `WITH RECURSIVE diskusjonstraad AS (..) SELECT FROM diskusjonstraad ...`)
     ```sql
-    
+    WITH RECURSIVE discussion_thread AS (
+      SELECT *, CAST(post_id AS TEXT) AS path, 0 AS level
+      FROM FORUM_POST
+      WHERE user_id = 3 AND parent_post_id IS NULL
+
+      UNION ALL
+
+      SELECT f.*, dt.path || ' -> ' || f.post_id, dt.level + 1
+      FROM FORUM_POST f
+      INNER JOIN discussion_thread dt ON f.parent_post_id = dt.post_id
+    )
+    SELECT REPEAT('  ', dt.level) || dt.subject AS subject,
+           REPEAT('  ', dt.level) || dt.content AS content,
+           a.username,
+           dt.post_date
+    FROM discussion_thread dt
+    LEFT JOIN ACCOUNT a ON dt.user_id = a.user_id
+    ORDER BY path;
     ```
 
 ### 3. Finn alle studenter i en spesifikk gruppe (f.eks. gruppe_id = 1).
 
 *   **Relasjonsalgebra:**
-    > 
+    > $$\pi_{user\_id, username, role, group\_id} (\sigma_{group\_id = 1 \land role = 'student'} (ACCOUNT \bowtie GROUP\_MEMBERSHIP))$$
+    - $\bowtie$ (Natural Join): Koble tabeller på felles kolonnenavn.
+    - $\sigma$ (Sigma): Seleksjon. Operator for WHERE-klausulen. Filtrerer ut radene der group_id = 1, og role = 'student'.
+    - $\land$ (og-tegn): I stedet for AND bruker man ofte symbolet $\land$ mellom betingelsene i seleksjonen.
+    - $\pi$ (Pi): Projeksjon. Operator for SELECT-klausulen. Beholder bare de kolonnene vi skriver.
+
 
 *   **SQL:**
     ```sql
-    
+    SELECT a.user_id, a.username, a.role, gm.group_id
+    FROM ACCOUNT a
+    JOIN GROUP_MEMBERSHIP gm ON a.user_id = gm.user_id
+    WHERE gm.group_id = 1 AND a.role = 'student';
     ```
 
 ### 4. Finn antall grupper.
 
 *   **Relasjonsalgebra (med aggregering):**
-    > 
+    > $$_{COUNT(group\_id) \rightarrow number\_of\_groups} \mathcal{G} (CLASS\_GROUP)$$
+    - $\mathcal{G}$: Aggregering: De vanligste aggregeringsfunksjonene er SUM, COUNT, AVG, MAX, MIN. Utfører beregninger på tvers av rader.
+    - $\rightarrow$: Brukes for å gi resultatet et beskrivende kolonnenavn (tilsvarer AS i SQL).
+
 
 *   **SQL:**
     ```sql
-    
+    SELECT COUNT(group_id) AS number_of_groups
+    FROM CLASS_GROUP;
     ```
 
 ## Del 5: Implementer i postgreSQL i din Docker container

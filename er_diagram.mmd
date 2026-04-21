@@ -1,0 +1,69 @@
+---
+title: Databasesystem for Nettbasert Undervisning
+---
+erDiagram
+%% Brukerhåndtering og gruppering
+    ACCOUNT ||--o{ GROUP_MEMBERSHIP : member_of
+    CLASS_GROUP ||--o{ GROUP_MEMBERSHIP : has
+    ACCOUNT {
+        SERIAL user_id PK
+        VARCHAR(50) username
+        VARCHAR(128) password "accommodates hashed values for security"
+        ENUM role "student or teacher"
+    }
+    CLASS_GROUP {
+        SERIAL group_id PK
+        VARCHAR(50) group_name
+    }
+    GROUP_MEMBERSHIP {
+        INT user_id PK, FK
+        INT group_id PK, FK
+    }
+
+%% Klasserom og Tilgang
+    ACCOUNT ||--o{ VIRTUAL_CLASSROOM : teacher_responsible_for
+    CLASS_GROUP ||--o{ CLASSROOM_ACCESS : has
+    VIRTUAL_CLASSROOM ||--o{ CLASSROOM_ACCESS : needs
+    VIRTUAL_CLASSROOM {
+        SERIAL classroom_id PK
+        VARCHAR(50) classroom_code "e.g. DATA1500"
+        VARCHAR(50) classroom_name
+        INT user_id FK
+    }
+    CLASSROOM_ACCESS {
+        INT group_id PK, FK
+        INT classroom_id PK, FK
+    }
+
+%% Kommunikasjon (Beskjeder fra læreren)
+    VIRTUAL_CLASSROOM ||--o{ CLASSROOM_MESSAGE : contains
+    ACCOUNT ||--o{ CLASSROOM_MESSAGE : teacher_writes
+    CLASSROOM_MESSAGE {
+        SERIAL message_id PK
+        TIMESTAMP post_date
+        VARCHAR(50) subject
+        TEXT content
+        INT user_id FK
+        INT classroom_id FK
+    }
+
+%% Diskusjonsforum
+    VIRTUAL_CLASSROOM ||--|| DISCUSSION_FORUM : has
+    DISCUSSION_FORUM ||--o{ FORUM_POST : contains
+    DISCUSSION_FORUM {
+        SERIAL forum_id PK
+        INT classroom_id FK
+    }
+    FORUM_POST {
+        SERIAL post_id PK
+        TIMESTAMP post_date
+        VARCHAR(50) subject
+        TEXT content
+        INT parent_post_id FK "NULL for parent post, post_id for child post"
+        INT user_id FK
+        INT forum_id FK
+    }
+
+%% Innlegg og svar (Både lærer og student bruker samme tabell)
+    ACCOUNT ||--o{ FORUM_POST : writes
+    FORUM_POST ||--o{ FORUM_POST : is_reply_to
