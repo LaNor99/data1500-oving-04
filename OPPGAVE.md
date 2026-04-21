@@ -62,7 +62,9 @@ I et klasserom kan studentene lese beskjeder fra læreren. Hvert klasserom har o
 ### 1. Finn de 3 nyeste beskjeder fra læreren i et gitt klasserom (f.eks. klasserom_id = 1).
 
 *   **Relasjonsalgebra:**
-    > $$ \lambda_{3} ( \tau_{post\_date\,DESC} ( \pi_{subject, content, username, post\_date} ( \sigma_{classroom\_id = 1} (CLASSROOM\_MESSAGE \bowtie ACCOUNT) ) ) ) $$
+    > $$
+        \lambda_{3} ( \tau_{post\_date\,DESC} ( \pi_{subject, content, username, post\_date} ( \sigma_{classroom\_id = 1} (CLASSROOM\_MESSAGE \bowtie ACCOUNT) ) ) )
+      $$
     - $\sigma$ (Sigma): Seleksjon. Operator for WHERE-klausulen. Filtrerer ut radene der classroom_id = 1.
     - $\pi$ (Pi): Projeksjon. Operator for SELECT-klausulen. Beholder bare de kolonnene vi skriver.
     - $\tau$ (Tau): Sortering. Operatoren for ORDER BY-klausulen. Sorterer på post_date i synkende rekkefølge.
